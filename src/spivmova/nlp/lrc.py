@@ -56,9 +56,10 @@ def parse_lrc(lrc_text: str) -> list[LyricLine]:
         if not text:
             continue
 
+        text = text.strip()
+
         if not stamps:
             lines.append(LyricLine(text=text))
-
         for m in stamps:
             lines.append(LyricLine(text=text, time=_to_ms(*m.groups()), words=words))
 

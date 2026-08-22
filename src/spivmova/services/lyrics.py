@@ -20,6 +20,7 @@ async def get_lyrics(
 
     return pick_best(hits, duration=duration)
 
+
 def pick_best(hits: list[LrclibTrack], duration: float | None = None) -> LrclibTrack | None:
     # Prefer synced, non-instrumental, with closest matching duration
     def penalty(track: LrclibTrack) -> tuple[int, int, float]:
