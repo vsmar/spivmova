@@ -1,5 +1,8 @@
 # Spivmova
-** By Victor Marcenac **
+By Victor Marcenac
+
+*Special thanks to Julia for planting the seeds of this project back in 2019.*
+
 Spiv - Mova
 
 Learning Ukrainian through song

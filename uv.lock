@@ -1560,7 +1560,7 @@ wheels = [
 ]
 
 [[package]]
-name = "spimova"
+name = "spivmova"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

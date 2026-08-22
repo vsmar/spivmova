@@ -1,7 +1,7 @@
 [project]
-name = "spimova"
+name = "spivmova"
 version = "0.1.0"
-description = "Add your description here"
+description = "Application to help learn Ukrainian through lyrics"
 readme = "README.md"
 authors = [
     { name = "vsmar", email = "vsmarcenac@gmail.com" }
@@ -26,7 +26,7 @@ dependencies = [
 uk-core-news-sm = { url = "https://github.com/explosion/spacy-models/releases/download/uk_core_news_sm-3.8.0/uk_core_news_sm-3.8.0-py3-none-any.whl" }
 
 [project.scripts]
-spimova = "spimova:main"
+spivmova = "spivmova:main"
 
 [build-system]
 requires = ["uv_build>=0.11.7,<0.12.0"]
@@ -45,3 +45,6 @@ dev = [
 line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

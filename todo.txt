@@ -1,0 +1,2 @@
+- Add tests for lyric time conversions, and other nlp/lrc.py functions
+
