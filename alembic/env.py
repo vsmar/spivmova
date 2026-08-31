@@ -6,10 +6,9 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
 from spivmova.config import settings
-from spivmova.db.base import Base
 from spivmova.db import models  # noqa: F401  (registers all tables on Base.metadata)
+from spivmova.db.base import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

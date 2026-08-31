@@ -18,5 +18,3 @@ def get_lrclib(http: HttpClient) -> LrclibClient:
 
 Lrclib = Annotated[LrclibClient, Depends(get_lrclib)]
 DbSession = Annotated[AsyncSession, Depends(get_session)]
-
-# Do I need to write get_db? or move it here from db.session.py?
