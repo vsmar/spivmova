@@ -36,9 +36,7 @@ class LyricLine(Base):
 
     translation: Mapped["LineTranslation"] = relationship(back_populates="lines")
     track: Mapped["Track"] = relationship(back_populates="lines")
-    tokens: Mapped[list["Token"]] = relationship(
-        back_populates="line", order_by="Token.position"
-    )
+    tokens: Mapped[list["Token"]] = relationship(back_populates="line", order_by="Token.position")
 
 
 class LineTranslation(Base):
@@ -60,16 +58,10 @@ class Vocabulary(Base):
     lemma: Mapped[str]
     pos: Mapped[str]
 
-    __table_args__ = (
-        UniqueConstraint("lemma", "pos"),
-    )
+    __table_args__ = (UniqueConstraint("lemma", "pos"),)
 
-    senses: Mapped[list["Sense"]] = relationship(
-        back_populates="vocab"
-    )
-    tokens: Mapped[list["Token"]] = relationship(
-        back_populates="vocab"
-    )
+    senses: Mapped[list["Sense"]] = relationship(back_populates="vocab")
+    tokens: Mapped[list["Token"]] = relationship(back_populates="vocab")
 
 
 class Sense(Base):
@@ -82,10 +74,9 @@ class Sense(Base):
     example_line_id: Mapped[int | None] = mapped_column(ForeignKey("lyric_lines.id"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
+    example_line: Mapped["LyricLine | None"] = relationship()
     vocab: Mapped["Vocabulary"] = relationship(back_populates="senses")
-    tokens: Mapped[list["Token"]] = relationship(
-        back_populates="sense"
-    )
+    tokens: Mapped[list["Token"]] = relationship(back_populates="sense")
 
 
 class Token(Base):
