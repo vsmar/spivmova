@@ -1,11 +1,18 @@
-- Add tests for lyric time conversions, and other nlp/lrc.py functions
 - read through alembic env
 - read through conftest
-- implement ingest_test
 
-
-- spaCy / and tokenization + translation
-- API layer
 
 - Youtube client
+- frontend
 - search
+
+- Implement a foreign language detection run to allow to translate accross multiple languages.
+For example:
+A song is in Ukrainian and German, we want to know what lyrics to translate with German 
+or Spanish.
+Generally lyrics are somewhat grouped by languages, although there can be split vocal tracks too.
+This would be a very cool extension.
+Requires modifying translation, lyricline and token/sense and vocab to have a language parameter.
+Requires adding a spaCy extension (compact language detector for example) or lang detection package like langdetect or langid
+
+Requires modifying the translation path to take in a dynamic source_lang variable.

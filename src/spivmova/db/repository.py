@@ -11,7 +11,11 @@ async def get_track_by_lrclib_id(session: AsyncSession, lrclib_id: int) -> Track
     stmt = (
         select(Track)
         .where(Track.lrclib_id == lrclib_id)
-        .options(selectinload(Track.lines))  # eager load lines
+        .options(
+            selectinload(Track.lines).selectinload(LyricLine.tokens).selectinload(Token.vocab),
+            selectinload(Track.lines).selectinload(LyricLine.tokens).selectinload(Token.sense),
+            selectinload(Track.lines).selectinload(LyricLine.translation),
+        )
     )
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
@@ -39,7 +43,24 @@ def text_hash(text: str) -> int:
 async def get_line_translation_by_hash(
     session: AsyncSession, text_hash: str
 ) -> LineTranslation | None:
-    stmt = select(LineTranslation).where(LineTranslation.text_hash == text_hash)
+    stmt = (
+        select(LineTranslation)
+        .where(LineTranslation.text_hash == text_hash)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+async def get_example_lyric_line(session: AsyncSession, translation_id: int) -> LyricLine | None:
+    stmt = (
+        select(LyricLine)
+        .where(LyricLine.translation_id == translation_id)
+        .options(
+            selectinload(LyricLine.tokens).selectinload(Token.vocab),
+            selectinload(LyricLine.tokens).selectinload(Token.sense),
+            selectinload(LyricLine.translation),
+        )
+        .limit(1)
+    )
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -57,19 +78,3 @@ async def get_or_create_sense(
         session.add(sense)
     return sense
 
-
-# NOTE: This won't scale well with data
-async def get_sense_for_line_translation(
-    session: AsyncSession,
-    translation_id: LineTranslation,
-    vocab_id: Vocabulary,
-) -> Sense | None:
-    stmt = (
-        select(Sense)
-        .join(Token, Token.sense_id == Sense.id)
-        .join(LyricLine, Token.line_id == LyricLine.id)
-        .where(LyricLine.translation_id == translation_id, Token.vocab_id == vocab_id)
-        .limit(1)
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
