@@ -18,6 +18,7 @@ class Track(Base):
     duration: Mapped[float | None] = mapped_column(default=None)
     instrumental: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    youtube_video_id: Mapped[str | None] = mapped_column(default=None)
 
     lines: Mapped[list["LyricLine"]] = relationship(
         back_populates="track", order_by="LyricLine.position"

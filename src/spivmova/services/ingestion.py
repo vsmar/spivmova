@@ -4,8 +4,8 @@ from spivmova.clients.deepl import DeepLClient
 from spivmova.clients.lrclib import LrclibClient, LrclibTrack
 from spivmova.db.models import LineTranslation, LyricLine, Token, Track
 from spivmova.db.repository import (
-    get_line_translation_by_hash,
     get_example_lyric_line,
+    get_line_translation_by_hash,
     get_or_create_sense,
     get_or_create_vocabulary,
     get_track_by_lrclib_id,

@@ -21,6 +21,15 @@ async def get_track_by_lrclib_id(session: AsyncSession, lrclib_id: int) -> Track
     return result.scalar_one_or_none()
 
 
+async def get_track_by_id(session: AsyncSession, id: int) -> Track | None:
+    stmt = (
+        select(Track)
+        .where(Track.id == id)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
 async def persist_track(session: AsyncSession, track: Track) -> Track:
     await session.commit()
     return track
@@ -77,4 +86,5 @@ async def get_or_create_sense(
         )
         session.add(sense)
     return sense
+
 

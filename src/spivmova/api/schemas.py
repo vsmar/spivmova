@@ -68,3 +68,12 @@ class VocabOut(BaseModel):
     lemma: str
     pos: str
     senses: list[SenseOut]
+
+
+class VideoOut(BaseModel):
+    youtube_video_id: str | None
+
+
+class VideoOverrideIn(BaseModel):
+    youtube_video_id: str
+

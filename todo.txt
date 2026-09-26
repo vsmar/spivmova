@@ -1,6 +1,7 @@
 - read through alembic env
 - read through conftest
 
+- new pass of backend search and fetches to iron out kinks
 
 - Youtube client
 - frontend
