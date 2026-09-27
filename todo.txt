@@ -17,3 +17,9 @@ Requires modifying translation, lyricline and token/sense and vocab to have a la
 Requires adding a spaCy extension (compact language detector for example) or lang detection package like langdetect or langid
 
 Requires modifying the translation path to take in a dynamic source_lang variable.
+
+
+
+Improve erroring: 
+DeepL: 429 slow down and 456 out of quota
+Lrclib ...?

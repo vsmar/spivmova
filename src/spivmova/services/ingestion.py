@@ -50,6 +50,8 @@ async def translate_novel_lines(
     response = await translation_client.translate_batch(
         texts=to_translate, target_lang="EN-US", source_lang="UK"
     )
+    # NOTE: Could use full lyrics as context, 
+    # but would have to move away from sharing translations for lines between songs
 
     hash_to_translated = {}
 
@@ -112,11 +114,15 @@ async def tokenize_new_lines(
         tds = tokenize_line(text)
 
         # translate
-        response = await translation_client.translate_batch(
-            texts=[td.text for td in tds if td.pos != "PUNCT"], 
-            target_lang="EN-US", 
-            source_lang="UK"
-        )
+        words = [td.text for td in tds if td.pos != "PUNCT"]
+        response = []
+        if words:
+            response = await translation_client.translate_batch(
+                texts=words, 
+                target_lang="EN-US", 
+                context=text,
+                source_lang="UK"
+            )
 
         r_idx = 0
         tokens = []

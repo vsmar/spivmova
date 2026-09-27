@@ -20,7 +20,7 @@ def tokenize_line(text: str) -> list[TokenData]:
         TokenData(
             text=token.text,
             lemma=token.lemma_,
-            pos=token.pos_,
+            pos="PUNCT" if token.is_punct else token.pos_,
             start_char=token.idx,
             end_char=token.idx + len(token.text)
         ) for token in doc if not token.is_space

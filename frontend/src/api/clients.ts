@@ -9,11 +9,31 @@ export class TrackNotFoundError extends Error {
   }
 }
 
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, detail: string) {
+    super(detail)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
+async function toApiError(res: Response): Promise<ApiError> {
+  let detail = res.statusText
+  try {
+    const body = await res.json()
+    if (typeof body?.detail === 'string') detail = body.detail
+  } catch {
+    // body wasn't JSON; keep statusText
+  }
+  return new ApiError(res.status, detail)
+}
+
+
 export async function getTrackVideo(trackId: number): Promise<VideoOut> {
     const res = await fetch(`${API_BASE}/tracks/${trackId}/video`)
-    if (!res.ok) {
-        throw new Error(`Request failed for track ${trackId}: ${res.statusText}`)
-    }
+    if (res.status === 404) throw new TrackNotFoundError()
+    if (!res.ok) throw await toApiError(res)
     return res.json()
 }
 
@@ -25,9 +45,8 @@ export async function setTrackVideo(trackId: number, videoOverride: VideoOverrid
         },
         body: JSON.stringify(videoOverride),
     })
-    if (!res.ok) {
-        throw new Error(`Request failed for track ${trackId}: ${res.statusText}`)
-    }
+    if (res.status === 404) throw new TrackNotFoundError()
+    if (!res.ok) throw await toApiError(res)
     return res.json()
 }
 
@@ -41,9 +60,8 @@ export async function searchTrack(trackName: string, artistName: string, albumNa
 
     const res = await fetch(`${API_BASE}/tracks/search?${params.toString()}`)
     if (res.status === 404) throw new TrackNotFoundError()
-    if (!res.ok) {
-        throw new Error(`Request failed for search: ${res.statusText}`)
-    }
+    if (!res.ok) throw await toApiError(res)
     return res.json()
 }
+
 

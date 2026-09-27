@@ -6,6 +6,27 @@ from pydantic import BaseModel, Field
 from spivmova.config import settings
 
 
+class DeepLError(Exception):
+    def __init__(self, status_code: int, message: str, retry_after: float | None = None):
+        super().__init__(f"DeepL {status_code}: {message}")
+        self.status_code = status_code
+        self.message = message
+        self.retry_after = retry_after
+
+
+def _error_from(r: httpx.Response) -> DeepLError:
+    try:
+        body = r.json()
+        message = body.get("message") if isinstance(body, dict) else None
+    except ValueError:
+        message = None
+    try:
+        retry_after = float(r.headers["Retry-After"])
+    except (KeyError, ValueError):
+        retry_after = None
+    return DeepLError(r.status_code, message or r.text[:200], retry_after)
+
+
 class DeepLTranslation(BaseModel):
     translated_text: str = Field(alias="text")
     source_lang: str = Field(alias="detected_source_language")
@@ -45,7 +66,8 @@ class DeepLClient:
         if context is not None:
             json["context"] = context
         r = await self._http.post(self.base + "/v2/translate", headers=header, json=json)
-        r.raise_for_status()
+        if not r.is_success:
+            raise _error_from(r)
 
         translations = [
             DeepLTranslation.model_validate(translation) for translation in r.json()["translations"]

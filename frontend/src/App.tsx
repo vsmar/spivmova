@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState, type SubmitEvent } from 'react'
 import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+// react.svg / vite.svg were the Vite template's demo logos — dropped, unrelated to spivmova.
 import './App.css'
 
-import { searchTrack, TrackNotFoundError } from './api/clients'
-import type { TrackOut } from './api/types'
+import { getTrackVideo, searchTrack, setTrackVideo, TrackNotFoundError, ApiError } from './api/clients'
+import type { TrackOut, LyricLineOut, TokenOut, VideoOut } from './api/types'
+import { SpivmovaLogo } from "./components/SpivmovaLogo";
 
 
 type FetchState<T> =
@@ -19,13 +19,21 @@ type SearchBarProps = {
   loading: boolean
 }
 
+type TokenProps = {
+  token: TokenOut
+  isRelated: boolean
+  // Reports this token's vocab_id on hover/focus (null on leave/blur) so
+  // Lyrics can highlight every other token that shares it.
+  onHover: (vocabId: number | null) => void
+}
+
 export const SearchBar = ({ onSearch, loading }: SearchBarProps) => {
   const [trackName, setTrackName] = useState('')
   const [artistName, setArtistName] = useState('')
   const [albumName, setAlbumName] = useState('')
   const [duration, setDuration] = useState<number | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: SubmitEvent) => {
     e.preventDefault()
     onSearch(trackName, artistName, albumName || undefined, duration ?? undefined)
   }
@@ -36,12 +44,14 @@ export const SearchBar = ({ onSearch, loading }: SearchBarProps) => {
         type="text"
         placeholder="Track Name"
         value={trackName}
+        required={true}
         onChange={(e) => setTrackName(e.target.value)}
       />
       <input
         type="text"
         placeholder="Artist Name"
         value={artistName}
+        required={true}
         onChange={(e) => setArtistName(e.target.value)}
       />
       <input
@@ -63,10 +73,189 @@ export const SearchBar = ({ onSearch, loading }: SearchBarProps) => {
   )
 }
 
+export const Token = ({ token, isRelated, onHover }: TokenProps) => {
+  // Punctuation isn't a vocab item — render as plain text, not a button.
+  if (token.pos === 'PUNCT') {
+    return <span className="token punct">{token.text}</span>
+  }
+  return (
+    <button
+      type="button"
+      className={`token word${isRelated ? ' related' : ''}`}
+      onMouseEnter={() => onHover(token.vocab_id)}
+      onMouseLeave={() => onHover(null)}
+      onFocus={() => onHover(token.vocab_id)}
+      onBlur={() => onHover(null)}
+    >
+      {token.text}
+      {/* Shown via CSS on :hover/:focus-visible — see .token-tooltip in App.css */}
+      <span className="token-tooltip">
+        <strong>{token.lemma}</strong> <em>{token.pos}</em>
+        <br />
+        {token.sense ?? 'No translation available'}
+      </span>
+    </button>
+  )
+}
 
-  // state.error instanceof TrackNotFoundError
+const VideoPane = ({ trackId }: { trackId: number }) => {
+  const [video, setVideo] = useState<FetchState<VideoOut>>({ status: 'idle', data: null, error: null })
+  const [overrideId, setOverrideId] = useState('')
+
+  // Re-fetch whenever the track changes. `cancelled` guards against a race:
+  // if trackId changes again before this request resolves, its (stale)
+  // result must not overwrite the state for the newer track.
+  useEffect(() => {
+    let cancelled = false
+    setVideo({ status: 'loading', data: null, error: null })
+    getTrackVideo(trackId)
+      .then((data) => {
+        if (!cancelled) setVideo({ status: 'success', data, error: null })
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setVideo({ status: 'error', data: null, error: err instanceof Error ? err : new Error(String(err)) })
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [trackId])
+
+  const handleOverride = async (e: SubmitEvent) => {
+    e.preventDefault()
+    const id = overrideId.trim()
+    if (!id) return
+    try {
+      const data = await setTrackVideo(trackId, { youtube_video_id: id })
+      setVideo({ status: 'success', data, error: null })
+      setOverrideId('')
+    } catch (err) {
+      setVideo({ status: 'error', data: null, error: err instanceof Error ? err : new Error(String(err)) })
+    }
+  }
+
+  if (video.status === 'success' && video.data.youtube_video_id) {
+    return (
+      <div className="video-pane">
+        <iframe
+          src={`https://www.youtube.com/embed/${video.data.youtube_video_id}`}
+          title="YouTube video player"
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+        />
+      </div>
+    )
+  }
+
+  // idle/loading, no video found, or the lookup failed — all fall through to
+  // a placeholder that also lets you paste in a video id by hand.
+  return (
+    <div className="video-pane video-pane--empty">
+      <p>
+        {video.status === 'loading' && 'Looking for a video…'}
+        {video.status === 'error' && 'Could not load video.'}
+        {video.status === 'success' && 'No video found for this track.'}
+      </p>
+      <form onSubmit={handleOverride}>
+        <input
+          type="text"
+          placeholder="YouTube video ID"
+          value={overrideId}
+          onChange={(e) => setOverrideId(e.target.value)}
+        />
+        <button type="submit">Set</button>
+      </form>
+    </div>
+  )
+}
+
+// 'hidden' and 'always' are permanent states; 'hover' reveals a line's
+// translation only while that line is hovered.
+type TranslationMode = 'hidden' | 'always' | 'hover'
+const TRANSLATION_MODES: { value: TranslationMode; label: string }[] = [
+  { value: 'hidden', label: 'Hide' },
+  { value: 'always', label: 'Always' },
+  { value: 'hover', label: 'On hover' },
+]
+
+export const Lyrics = ({ track, lines }: { track: TrackOut; lines: LyricLineOut[] }) => {
+  const [hoveredVocabId, setHoveredVocabId] = useState<number | null>(null)
+  const [translationMode, setTranslationMode] = useState<TranslationMode>('always')
+  const sorted = [...lines].sort((a, b) => a.position - b.position)
+
+  return (
+    <div className="player">
+      <VideoPane trackId={track.id} />
+      <div className="lyrics-pane">
+        <div className="lyrics-header">
+          <h2>{track.track_name} - {track.artist_name}</h2>
+          <div className="translation-mode" role="radiogroup" aria-label="Line translations">
+            {TRANSLATION_MODES.map((mode) => (
+              <label key={mode.value}>
+                <input
+                  type="radio"
+                  name="translation-mode"
+                  checked={translationMode === mode.value}
+                  onChange={() => setTranslationMode(mode.value)}
+                />
+                {mode.label}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="lyrics-scroll">
+          {sorted.map((line) => (
+            <div className="lyric-line" key={line.position}>
+              <p>{renderLine(line, hoveredVocabId, setHoveredVocabId)}</p>
+              {/* Always rendered (when a translation exists) so the line's height
+                  never changes — visibility/opacity hide it, not conditional rendering. */}
+              {line.translation && (
+                <p className={`line-translation line-translation--${translationMode}`}>
+                  {line.translation}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export const renderLine = (
+  line: LyricLineOut,
+  hoveredVocabId: number | null,
+  onHover: (vocabId: number | null) => void,
+) => {
+  // Slice by start_char/end_char (rather than joining token.text with spaces)
+  // so the rendered line matches the original exactly, gaps included.
+  const sorted = [...line.tokens].sort((a, b) => a.start_char - b.start_char)
+  const pieces: React.ReactNode[] = []
+  let cursor = 0
+
+  for (const token of sorted) {
+    if (token.start_char > cursor) {
+      pieces.push(line.text.slice(cursor, token.start_char))
+    }
+    const isRelated = token.vocab_id !== null && token.vocab_id === hoveredVocabId
+    pieces.push(
+      <Token key={`${line.position}-${token.position}`} token={token} isRelated={isRelated} onHover={onHover} />,
+    )
+    cursor = token.end_char
+  }
+  if (cursor < line.text.length) pieces.push(line.text.slice(cursor))
+
+  return pieces
+}
 
 
+function describeError(err: Error): string {
+  if (err instanceof TrackNotFoundError) return 'No lyrics found for that song and artist.'
+  if (err instanceof ApiError && err.status === 502) return err.message
+  if (err instanceof TypeError) return 'No response from the server (it may be down or have crashed).'
+  return 'Something went wrong.'
+}
 
 function App() {
   const [search, setSearch] = useState<FetchState<TrackOut>>({
@@ -89,74 +278,30 @@ function App() {
     }
   }
 
-
-
   return (
     <>
       <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>spivmova</h1>
-          <p>
-            Learning Ukrainian through song.
-          </p>
-        </div>
+        <SpivmovaLogo />
+        <p> Learning Ukrainian through song. </p>
+
         <SearchBar onSearch={handleSearch} loading={search.status === 'loading'} />
+        {search.status === 'loading' && (
+          <>
+            <h3>Searching...</h3>
+            <p>New songs can take a while</p>
+          </>
+        )}
+        {search.status === 'error' && (
+          <p>{describeError(search.error)}</p>
+        )}
+        {search.status === 'success' && <Lyrics track={search.data} lines={search.data.lines} />}
       </section>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Learn More</h2>
-          <p>Codebase</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vsmar/spivmova" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+      <a id="social" href="https://github.com/vsmar/spivmova" target="_blank" aria-label="GitHub repository">
+        <svg className="button-icon" role="presentation" aria-hidden="true">
+          <use href="/icons.svg#github-icon"></use>
+        </svg>
+      </a>
     </>
   )
 }

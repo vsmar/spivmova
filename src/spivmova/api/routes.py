@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from spivmova.api.deps import DbSession, Deepl, Lrclib, YouTube
 from spivmova.api.schemas import TrackOut, VideoOut, VideoOverrideIn
+from spivmova.clients.deepl import DeepLError
 from spivmova.services.ingestion import ingest_track
 from spivmova.services.player import TrackNotFound, get_or_search_video_id
 
@@ -17,16 +18,22 @@ async def search_track(
     album: str | None = None,
     duration: float | None = None,
 ):
-    result = await ingest_track(
-        session,
-        lrc_client,
-        translation_client,
-        track=track,
-        artist=artist,
-        album=album,
-        duration=duration,
-    )
-
+    try:
+        result = await ingest_track(
+            session,
+            lrc_client,
+            translation_client,
+            track=track,
+            artist=artist,
+            album=album,
+            duration=duration,
+        )
+    except DeepLError as e:
+         raise HTTPException(
+            status_code=502, 
+            detail=f"Translation failed: {e.message}"
+        ) from e
+    
     if result is None:
         raise HTTPException(status_code=404, detail="Track not found")
 

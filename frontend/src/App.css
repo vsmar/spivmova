@@ -17,6 +17,175 @@
   }
 }
 
+#social {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--social-bg);
+  transition: box-shadow 0.3s;
+}
+#social:hover {
+  box-shadow: var(--shadow);
+}
+#social .button-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* Two-column layout: video on the left (placeholder for now), lyrics on
+   the right. Stacks vertically once there isn't room side by side. */
+.player {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  width: min(960px, 100%);
+}
+.video-pane {
+  flex: 1 1 0;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+  color: #888;
+  border-radius: 8px;
+  overflow: hidden; /* clips the iframe to the rounded corners */
+}
+.video-pane iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+.video-pane--empty {
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+}
+.video-pane--empty form {
+  display: flex;
+  gap: 6px;
+}
+.lyrics-pane {
+  flex: 1 1 0;
+  min-width: 0; /* lets the child scroll box shrink instead of overflowing the flex row */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lyrics-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.translation-mode {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-h, #888);
+  white-space: nowrap;
+}
+.translation-mode label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+/* Only this box scrolls, not the page. */
+.lyrics-scroll {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+.lyric-line {
+  margin: 0 0 14px;
+}
+.lyric-line p {
+  margin: 2px 0;
+}
+.line-translation {
+  color: var(--text-h, #888);
+  font-size: 0.9em;
+  font-style: italic;
+}
+/* visibility (not display) keeps the box's height reserved either way,
+   so toggling the mode never shifts the lines around it. */
+.line-translation--hidden { visibility: hidden; }
+.line-translation--always { visibility: visible; }
+.line-translation--hover {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.lyric-line:hover .line-translation--hover {
+  visibility: visible;
+  opacity: 1;
+}
+
+.token.word {
+  position: relative; /* anchors .token-tooltip */
+  background: none;
+  border: none;
+  font: inherit;
+  padding: 0 1px;
+  cursor: default;
+  border-radius: 3px;
+}
+/* Every token sharing the hovered word's vocab_id (passive highlight),
+   with the directly hovered/focused one drawn stronger — the :hover rule
+   comes after .related so it wins when both apply to the same token. */
+.token.word.related { background: #eef; }
+.token.word:hover,
+.token.word:focus-visible {
+  background: #cde;
+  outline: none;
+}
+
+.token-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%) translateY(4px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  background: #222;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+  text-align: left;
+  z-index: 20;
+}
+.token.word:hover .token-tooltip,
+.token.word:focus-visible .token-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.token.punct { white-space: pre; }
+
+@media (max-width: 700px) {
+  .player {
+    flex-direction: column;
+  }
+  .lyrics-scroll {
+    max-height: 50vh;
+  }
+}
+
+
 .hero {
   position: relative;
 
