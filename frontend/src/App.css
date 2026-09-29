@@ -44,7 +44,7 @@
   display: flex;
   gap: 20px;
   align-items: flex-start;
-  width: min(960px, 100%);
+  width: min(1080px, 100%);
 }
 .video-pane {
   flex: 1 1 0;
@@ -82,7 +82,7 @@
 .lyrics-header {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: space-around;
   gap: 12px;
 }
 .translation-mode {
@@ -91,6 +91,8 @@
   font-size: 13px;
   color: var(--text-h, #888);
   white-space: nowrap;
+  justify-content: space-evenly;
+  /* padding-inline: 40px; */
 }
 .translation-mode label {
   display: flex;
@@ -101,7 +103,7 @@
 
 /* Only this box scrolls, not the page. */
 .lyrics-scroll {
-  max-height: 60vh;
+  max-height: 50vh;
   overflow-y: auto;
   padding-right: 8px;
 }
@@ -110,6 +112,16 @@
 }
 .lyric-line p {
   margin: 2px 0;
+}
+.lyric-line.active {
+  background: var(--accent-bg);
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin: -4px -8px 10px -8px; /* negative offsets the padding so it doesn't shift the line horizontally/vertically */
+  transition: background 0.2s ease;
+}
+.lyric-line.active p {
+  color: var(--accent);
 }
 .line-translation {
   color: var(--text-h, #888);

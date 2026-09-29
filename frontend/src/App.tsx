@@ -1,11 +1,10 @@
-import { useEffect, useState, type SubmitEvent } from 'react'
-import heroImg from './assets/hero.png'
-// react.svg / vite.svg were the Vite template's demo logos — dropped, unrelated to spivmova.
+import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import './App.css'
 
 import { getTrackVideo, searchTrack, setTrackVideo, TrackNotFoundError, ApiError } from './api/clients'
 import type { TrackOut, LyricLineOut, TokenOut, VideoOut } from './api/types'
 import { SpivmovaLogo } from "./components/SpivmovaLogo";
+import { loadYouTubeIframeApi } from './youtube/loadYouTubeIframeApi'
 
 
 type FetchState<T> =
@@ -98,9 +97,17 @@ export const Token = ({ token, isRelated, onHover }: TokenProps) => {
   )
 }
 
-const VideoPane = ({ trackId }: { trackId: number }) => {
+export const VideoPane = ({ trackId, onTimeUpdate, onReady }: {
+  trackId: number,
+  onTimeUpdate: (time: number) => void,
+  onReady: (isReady: YT.PlayerEvent) => void,
+}) => {
   const [video, setVideo] = useState<FetchState<VideoOut>>({ status: 'idle', data: null, error: null })
   const [overrideId, setOverrideId] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
+  const videoId = video.status === 'success' && video.data.youtube_video_id ? video.data.youtube_video_id : null
+  const intervalRef = useRef<number | null>(null)
+  const playerRef = useRef<YT.Player | null>(null)
 
   // Re-fetch whenever the track changes. `cancelled` guards against a race:
   // if trackId changes again before this request resolves, its (stale)
@@ -135,40 +142,68 @@ const VideoPane = ({ trackId }: { trackId: number }) => {
     }
   }
 
+  function onStateChange(event: YT.OnStateChangeEvent) {
+    if (event.data === YT.PlayerState.PLAYING) {
+      intervalRef.current = window.setInterval(() => {
+        onTimeUpdate(event.target.getCurrentTime() * 1000)
+      }, 250)
+    } else if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current) 
+      intervalRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    if (videoId === null) return
+      let cancelled = false
+
+    loadYouTubeIframeApi().then((YT) => {
+      if (cancelled) return
+      playerRef.current?.destroy()
+      const player = new YT.Player(containerRef.current!, {
+        videoId: videoId ?? undefined,
+        events: { onReady, onStateChange },
+      })
+      playerRef.current = player
+    })
+
+    return () => {
+      cancelled = true
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      playerRef.current?.destroy()
+      playerRef.current = null
+    }
+  }, [videoId])
+
   if (video.status === 'success' && video.data.youtube_video_id) {
     return (
-      <div className="video-pane">
-        <iframe
-          src={`https://www.youtube.com/embed/${video.data.youtube_video_id}`}
-          title="YouTube video player"
-          allow="autoplay; encrypted-media"
-          allowFullScreen
-        />
+      <div ref={containerRef} className="video-pane" />
+    )
+  } else {
+    return (
+      <div className="video-pane video-pane--empty">
+        <p>
+          {video.status === 'loading' && 'Looking for a video…'}
+          {video.status === 'error' && 'Could not load video.'}
+          {video.status === 'success' && 'No video found for this track.'}
+        </p>
+        <form onSubmit={handleOverride}>
+          <input
+            type="text"
+            placeholder="YouTube video ID"
+            value={overrideId}
+            onChange={(e) => setOverrideId(e.target.value)}
+          />
+          <button type="submit">Set</button>
+        </form>
       </div>
     )
   }
-
-  // idle/loading, no video found, or the lookup failed — all fall through to
-  // a placeholder that also lets you paste in a video id by hand.
-  return (
-    <div className="video-pane video-pane--empty">
-      <p>
-        {video.status === 'loading' && 'Looking for a video…'}
-        {video.status === 'error' && 'Could not load video.'}
-        {video.status === 'success' && 'No video found for this track.'}
-      </p>
-      <form onSubmit={handleOverride}>
-        <input
-          type="text"
-          placeholder="YouTube video ID"
-          value={overrideId}
-          onChange={(e) => setOverrideId(e.target.value)}
-        />
-        <button type="submit">Set</button>
-      </form>
-    </div>
-  )
 }
+
 
 // 'hidden' and 'always' are permanent states; 'hover' reveals a line's
 // translation only while that line is hovered.
@@ -183,31 +218,46 @@ export const Lyrics = ({ track, lines }: { track: TrackOut; lines: LyricLineOut[
   const [hoveredVocabId, setHoveredVocabId] = useState<number | null>(null)
   const [translationMode, setTranslationMode] = useState<TranslationMode>('always')
   const sorted = [...lines].sort((a, b) => a.position - b.position)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [isReady, setIsReady] = useState<YT.PlayerEvent | null>(null)
+  const [isFollowing, setFollowing] = useState(true) 
+  const activeLineRef = useRef<HTMLDivElement | null>(null)
+
+  const activePosition = sorted.findLast(
+    (line) => line.time !== null && line.time <= currentTime
+  )?.position ?? null
+
+  useEffect(() => {
+    if (isFollowing) activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [activePosition, isFollowing])
+
 
   return (
     <div className="player">
-      <VideoPane trackId={track.id} />
+      <VideoPane trackId={track.id} onTimeUpdate={setCurrentTime} onReady={setIsReady} />
       <div className="lyrics-pane">
         <div className="lyrics-header">
           <h2>{track.track_name} - {track.artist_name}</h2>
-          <div className="translation-mode" role="radiogroup" aria-label="Line translations">
-            {TRANSLATION_MODES.map((mode) => (
-              <label key={mode.value}>
-                <input
-                  type="radio"
-                  name="translation-mode"
-                  checked={translationMode === mode.value}
-                  onChange={() => setTranslationMode(mode.value)}
-                />
-                {mode.label}
-              </label>
-            ))}
-          </div>
+        </div>
+        <div className="translation-mode" role="radiogroup" aria-label="Line translations">
+          {TRANSLATION_MODES.map((mode) => (
+            <label key={mode.value}>
+              <input
+                type="radio"
+                name="translation-mode"
+                checked={translationMode === mode.value}
+                onChange={() => setTranslationMode(mode.value)}
+              />
+              {mode.label}
+            </label>
+          ))}
         </div>
         <div className="lyrics-scroll">
           {sorted.map((line) => (
-            <div className="lyric-line" key={line.position}>
-              <p>{renderLine(line, hoveredVocabId, setHoveredVocabId)}</p>
+            <div ref={line.position === activePosition ? activeLineRef : undefined} 
+            className={`lyric-line${line.position === activePosition ? ' active' : ''}`} 
+            key={line.position}>
+              <p>{renderLine(line, currentTime, hoveredVocabId, setHoveredVocabId)}</p>
               {/* Always rendered (when a translation exists) so the line's height
                   never changes — visibility/opacity hide it, not conditional rendering. */}
               {line.translation && (
@@ -225,6 +275,7 @@ export const Lyrics = ({ track, lines }: { track: TrackOut; lines: LyricLineOut[
 
 export const renderLine = (
   line: LyricLineOut,
+  currentTime: number,
   hoveredVocabId: number | null,
   onHover: (vocabId: number | null) => void,
 ) => {
