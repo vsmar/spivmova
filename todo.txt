@@ -23,3 +23,16 @@ Requires modifying the translation path to take in a dynamic source_lang variabl
 Improve erroring: 
 DeepL: 429 slow down and 456 out of quota
 Lrclib ...?
+
+
+Соня анастимоза
+Знайди мене Klavdia Petrivna
+Обійми  Океан Ельзи
+Без бою  Океан Ельзи
+
+I think we need to use up more  of the webpage area. The youtube video has a large footprint and so the lyrics side is getting squished.
+
+Add a popular tracks (loaded tracks)
+Improve searching (latin transliteration, close matching, could use llm api calls or lrclib regular search)
+add playlist compatibility?? 
+Add spotify

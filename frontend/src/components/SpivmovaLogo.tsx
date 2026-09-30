@@ -8,14 +8,15 @@ export function SpivmovaLogo() {
   const [latin, setLatin] = useState(false);
 
   useEffect(() => {
-    const id = setInterval(() => setLatin((l) => !l), 2500);
+    const id = setInterval(() => setLatin((l) => !l), 5000);
     return () => clearInterval(id);
   }, []);
 
   const letters = latin ? LAT : CYR;
 
   return (
-    <h1 aria-label="Spivmova" style={{ display: "flex" }}>
+    <h1 
+    aria-label="Spivmova" class="logo" style={{ display: "flex" }}>
       {letters.map((ch, i) => (
         <span
             key={i}
@@ -30,17 +31,18 @@ export function SpivmovaLogo() {
          {/* <span key={i} style={{ display: "inline-block", overflow: "hidden" }}> */}
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span
-              key={ch}
-              initial={{ y: "100%", opacity: 0, rotate: -12 }}
-              animate={{ y: 0, opacity: 1, rotate: 0 }}
-              exit={{ y: "-100%", opacity: 0 }}
-              transition={{ type: "spring", stiffness: 400, damping: 18, delay: i * 0.06 }}
-              style={{
-                display: "inline-block",
-                fontFamily: latin ? "'Your Latin Font'" : "'Your Cyrillic Font'",
-              }}
+                key={ch}
+                className={CYR.includes(ch) ? "logo-blue" : "logo-yellow"}
+                initial={{ y: "100%", opacity: 0, rotate: -12 }}
+                animate={{ y: 0, opacity: 1, rotate: 0 }}
+                exit={{ y: "-100%", opacity: 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 18, delay: i * 0.06 }}
+                style={{
+                    display: "inline-block",
+                    fontFamily: latin ? "'Your Latin Font'" : "'Your Cyrillic Font'",
+                }}
             >
-              {ch}
+                {ch}
             </motion.span>
           </AnimatePresence>
         </span>

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type SubmitEvent } from 'react'
-import './App.css'
+import { useEffect, useRef, useState, type SubmitEvent } from 'react';
+import './App.css';
+import './components/SpivmovaLogo.css';
 
-import { getTrackVideo, searchTrack, setTrackVideo, TrackNotFoundError, ApiError } from './api/clients'
-import type { TrackOut, LyricLineOut, TokenOut, VideoOut } from './api/types'
+import { getTrackVideo, searchTrack, setTrackVideo, TrackNotFoundError, ApiError } from './api/clients';
+import type { TrackOut, LyricLineOut, TokenOut, VideoOut } from './api/types';
 import { SpivmovaLogo } from "./components/SpivmovaLogo";
-import { loadYouTubeIframeApi } from './youtube/loadYouTubeIframeApi'
+import { loadYouTubeIframeApi } from './youtube/loadYouTubeIframeApi';
 
 
 type FetchState<T> =
@@ -220,17 +221,37 @@ export const Lyrics = ({ track, lines }: { track: TrackOut; lines: LyricLineOut[
   const sorted = [...lines].sort((a, b) => a.position - b.position)
   const [currentTime, setCurrentTime] = useState(0)
   const [isReady, setIsReady] = useState<YT.PlayerEvent | null>(null)
-  const [isFollowing, setFollowing] = useState(true) 
+  const [isCentered, setIsCentered] = useState(true)
   const activeLineRef = useRef<HTMLDivElement | null>(null)
-
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const activePosition = sorted.findLast(
     (line) => line.time !== null && line.time <= currentTime
   )?.position ?? null
 
-  useEffect(() => {
-    if (isFollowing) activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [activePosition, isFollowing])
+  const handleSeek = (time: number | null) => {
+    if (isReady === null || time === null) return
+    isReady.target.seekTo(time / 1000, true)
+  }
 
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      ([entry]) => setIsCentered(entry.isIntersecting),
+      { root: scrollContainerRef.current, rootMargin: '-10% 0px -10% 0px' },
+    )
+    return () => observerRef.current?.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (activeLineRef.current) observerRef.current?.observe(activeLineRef.current)
+    return () => {
+      if (activeLineRef.current) observerRef.current?.unobserve(activeLineRef.current)
+    }
+  }, [activePosition])
+
+  useEffect(() => {
+    if (isCentered) activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [activePosition, isCentered])
 
   return (
     <div className="player">
@@ -252,11 +273,12 @@ export const Lyrics = ({ track, lines }: { track: TrackOut; lines: LyricLineOut[
             </label>
           ))}
         </div>
-        <div className="lyrics-scroll">
+        <div ref={scrollContainerRef} className="lyrics-scroll">
           {sorted.map((line) => (
             <div ref={line.position === activePosition ? activeLineRef : undefined} 
             className={`lyric-line${line.position === activePosition ? ' active' : ''}`} 
-            key={line.position}>
+            key={line.position}
+            onClick={() => handleSeek(line.time)}>
               <p>{renderLine(line, currentTime, hoveredVocabId, setHoveredVocabId)}</p>
               {/* Always rendered (when a translation exists) so the line's height
                   never changes — visibility/opacity hide it, not conditional rendering. */}
@@ -267,6 +289,11 @@ export const Lyrics = ({ track, lines }: { track: TrackOut; lines: LyricLineOut[
               )}
             </div>
           ))}
+          {!isCentered && (
+            <button className="sync-button" onClick={() => activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+              Sync
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -333,7 +360,10 @@ function App() {
     <>
       <section id="center">
         <SpivmovaLogo />
-        <p> Learning Ukrainian through song. </p>
+        <p className="moto-text">
+          <span className="moto-text-original">Learning Ukrainian through song.</span>
+          <span className="moto-text-hover">Вивчай українську через пісні.</span>
+        </p>
 
         <SearchBar onSearch={handleSearch} loading={search.status === 'loading'} />
         {search.status === 'loading' && (
@@ -347,6 +377,12 @@ function App() {
         )}
         {search.status === 'success' && <Lyrics track={search.data} lines={search.data.lines} />}
       </section>
+
+      <p id="credits">
+        Translations by <a href="https://www.deepl.com" target="_blank">DeepL</a>. Lyrics via{' '}
+        <a href="https://lrclib.net" target="_blank">LRCLIB</a>. Video via{' '}
+        <a href="https://www.youtube.com" target="_blank">YouTube</a>.
+      </p>
 
       <a id="social" href="https://github.com/vsmar/spivmova" target="_blank" aria-label="GitHub repository">
         <svg className="button-icon" role="presentation" aria-hidden="true">
