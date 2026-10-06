@@ -11,3 +11,6 @@ wheels/
 
 # Environment variables / secrets
 .env
+
+# database dumps
+spivmova_backup.sql

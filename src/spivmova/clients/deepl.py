@@ -40,22 +40,10 @@ class DeepLClient:
         self._http = http
         self.base = self.BASE_FREE if settings.deepl_api_key.endswith(":fx") else self.BASE_PRO
 
-    async def translate(
-        self,
-        text: str,
-        target_lang: str,
-        context: str | None = None,
-        source_lang: str
-        | None = "UK",  # NOTE: May want to support autodetection (needs to be robust)
-    ) -> DeepLTranslation:
-        translations = await self.translate_batch([text], target_lang, context, source_lang)
-        return translations[0]
-
-
     async def translate_batch(
         self,
         texts: list[str],
-        target_lang: str,
+        target_lang: str | None = "en",
         context: str | None = None,
         source_lang: str | None = "UK",
     ) -> list[DeepLTranslation]:
@@ -83,3 +71,13 @@ class DeepLClient:
                 )
 
         return translations
+    
+    async def translate(
+        self,
+        text: str,
+        target_lang: str | None = "en",
+        context: str | None = None,
+        source_lang: str | None = "UK",  # NOTE: May want to support autodetection
+    ) -> DeepLTranslation:
+        translations = await self.translate_batch([text], target_lang, context, source_lang)
+        return translations[0]

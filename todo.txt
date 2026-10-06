@@ -1,38 +1,46 @@
-- read through alembic env
-- read through conftest
+TODO List:
 
-- new pass of backend search and fetches to iron out kinks
+Minor Cosmetic:
+ - logo revamp
+ - fix autoscroll breakout glitch
+ - add an about page/blurb (thanks, walk through for spotify)
 
-- Youtube client
-- frontend
-- search
+Improve song recognition: 
+ - transliteration
+ - imperfect matching
 
-- Implement a foreign language detection run to allow to translate accross multiple languages.
-For example:
-A song is in Ukrainian and German, we want to know what lyrics to translate with German 
-or Spanish.
-Generally lyrics are somewhat grouped by languages, although there can be split vocal tracks too.
-This would be a very cool extension.
-Requires modifying translation, lyricline and token/sense and vocab to have a language parameter.
-Requires adding a spaCy extension (compact language detector for example) or lang detection package like langdetect or langid
+Player support:
+ - Add spotify support
+ -- Allow user to log into spotify premium acc (cookies!!)
+
+Song loading:
+ - Add ingested songs recommendations
+ - Add ability to add a playlist (might be easier done via spotify first, since youtube artist matching is tricky)
+ - Add a way to update lrclib (see lrclib's api/.. publish, flag, request-challenge)
+
+Improve translation:
+ - add google translate support
+ - add foreign language detection 
+ 
+ - maybe add support for other languages?? (spacy? + deepl call wiring + db schema)
+  -- Requires adding a spaCy extension (compact language detector for example) or lang detection package like langdetect or langid
+ - Support for split vocal tracks?
 
 Requires modifying the translation path to take in a dynamic source_lang variable.
 
-
-
 Improve erroring: 
-DeepL: 429 slow down and 456 out of quota
-Lrclib ...?
+ - DeepL: 429 slow down and 456 out of quota
+ - Lrclib ...?
 
+Legality:
+ - Add a takedown page (with blacklist for author who want queries blocked)
+ - Add full source credits if possible
 
 Соня анастимоза
 Знайди мене Klavdia Petrivna
 Обійми  Океан Ельзи
 Без бою  Океан Ельзи
 
-I think we need to use up more  of the webpage area. The youtube video has a large footprint and so the lyrics side is getting squished.
-
-Add a popular tracks (loaded tracks)
-Improve searching (latin transliteration, close matching, could use llm api calls or lrclib regular search)
-add playlist compatibility?? 
-Add spotify
+docker exec -i spivmova-db psql -U spivmova -d spivmova < spivmova_backup.sql
+.venv/Scripts/uvicorn spivmova.main:app --reload
+uv run uvicorn spivmova.main:app --reload --port 8000

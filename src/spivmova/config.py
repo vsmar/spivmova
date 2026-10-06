@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     database_url: str
     deepl_api_key: str
     youtube_api_key: str
+    google_cloud_project_id: str
     spacy_model: str = "uk_core_news_sm"
     model_config = SettingsConfigDict(env_file=".env")
 
