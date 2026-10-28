@@ -1,12 +1,15 @@
 from contextlib import asynccontextmanager
+
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import httpx
 
 from spivmova.api.routes import router
-
+from spivmova.clients.googletranslate import GoogleTranslateClient
+from spivmova.config import settings
 
 USER_AGENT = "spivmova v0.1.0 (https://github.com/vsmar/spivmova)"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,7 +17,11 @@ async def lifespan(app: FastAPI):
         headers={"User-Agent": USER_AGENT},
         timeout=httpx.Timeout(10.0),
     )
+    if settings.google_cloud_project_id:
+        app.state.google = GoogleTranslateClient()
     yield
+    if settings.google_cloud_project_id:
+        await app.state.google.client.transport.close()
     await app.state.http.aclose()
 
 

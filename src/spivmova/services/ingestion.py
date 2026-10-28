@@ -1,7 +1,17 @@
+from collections import defaultdict
+from collections.abc import KeysView
+from dataclasses import dataclass, field
+from functools import cached_property
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from spivmova.clients.deepl import DeepLClient
 from spivmova.clients.lrclib import LrclibClient, LrclibTrack
+from spivmova.clients.translator import (
+    ContextualTranslation,
+    ContextualTranslator,
+    ContextUnit,
+    ElementInput,
+)
 from spivmova.db.models import LineTranslation, LyricLine, Token, Track
 from spivmova.db.repository import (
     get_example_lyric_line,
@@ -12,15 +22,56 @@ from spivmova.db.repository import (
     persist_track,
     text_hash,
 )
-from spivmova.nlp.lrc import LyricLine as ParsedLine
-from spivmova.nlp.lrc import parse_lrc
-from spivmova.nlp.tokenize import tokenize_line
+from spivmova.nlp.lrc import ParsedLine, parse_lrc
+from spivmova.nlp.tokenize import TokenData, tokenize_line
 from spivmova.services.lyrics import get_lyrics
 
 
+class HashedLine(ParsedLine):
+    @cached_property
+    def line_hash(self) -> str:
+        return text_hash(self.text)
+
+
+@dataclass
+class TokenizedLine:
+    text: str
+    tds: list[TokenData] = field(init=False)
+    context_unit: ContextUnit | None = field(init=False)
+
+    def __post_init__(self):
+        self.tds = [td for td in tokenize_line(self.text) if td.translatable]
+        elements = [ElementInput(position=td.position, text=td.text) for td in self.tds]
+        self.context_unit = ContextUnit(context=self.text, elements=elements) if elements else None
+
+    def translatable(self) -> bool:
+        return self.context_unit is not None
+
+
+def build_ll(track: Track, parsed_line: ParsedLine, **refs):
+    return LyricLine(
+        track=track,
+        position=parsed_line.position,
+        time=parsed_line.time,
+        text=parsed_line.text,
+        **refs,
+    )
+
+
+def build_token(src: TokenData | Token, line: LyricLine, **refs):
+    return Token(
+        position=src.position,
+        text=src.text,
+        start_char=src.start_char,
+        end_char=src.end_char,
+        line=line,
+        **refs,
+    )
+
+
 async def get_unique_lines(
-    session: AsyncSession, hash_keys: list[str]
-) -> tuple[list[str], dict[str, tuple[LyricLine, list[Token]]]]:
+    session: AsyncSession, hash_keys: KeysView[str]
+) -> tuple[list[str], dict[str, LyricLine]]:
     """
     Identify never before seen lines by their hash.
     """
@@ -34,181 +85,100 @@ async def get_unique_lines(
             translate_hashes.append(hash_key)
         else:
             example_lyric_line = await get_example_lyric_line(session, translation.id)
-            existing[hash_key] = (example_lyric_line, example_lyric_line.tokens)
+            if example_lyric_line is None:
+                raise ValueError(
+                    f"LineTranslation with hash {hash_key} exists but has no associated LyricLine"
+                )  # NOTE: This can be handled more gracefully
+            existing[hash_key] = example_lyric_line
     return (translate_hashes, existing)
 
 
-async def translate_novel_lines(
-    session: AsyncSession, 
-    translation_client: DeepLClient, 
-    translate_hashes: list[str], 
-    hash_to_text: dict[str, str]
-) -> dict[str, LineTranslation]:
-    """ Handles all new line translations (batched call)
-    """
-    to_translate = [hash_to_text[hash_key] for hash_key in translate_hashes]
-    response = await translation_client.translate_batch(
-        texts=to_translate, target_lang="EN-US", source_lang="UK"
-    )
-    # NOTE: Could use full lyrics as context, 
-    # but would have to move away from sharing translations for lines between songs
-
-    hash_to_translated = {}
-
-    # add newly translated lines to map
-    for i, hash_key in enumerate(translate_hashes):
-        translation = LineTranslation(
-            text_hash=hash_key,
-            source_text=hash_to_text[hash_key],
-            translation=response[i].translated_text,
-            provider="deepl",
-        )
-        session.add(translation)
-        hash_to_translated[hash_key] = translation
-
-    return hash_to_translated
-
-
-async def add_novel_lines(
-    session: AsyncSession,
-    hash_to_translated: dict[str, LineTranslation],
-    ordered_hashes: list[str],
-    ordered_text: list[str],
-    ordered_time: list[int],
-    track: Track
-) -> tuple[dict[str, LyricLine], list[int]]:
-    """ 
-    Adds first occurence of all new lines to the database 
-    """
-    hash_to_lyricline = {}
-    loaded_slots = []
-    for hash_key in hash_to_translated.keys():
-        position = next(i for i, x in enumerate(ordered_hashes) if x == hash_key)
-        lyricline = LyricLine(
-            track=track,
-            position=position,
-            time=ordered_time[position],
-            text=ordered_text[position],
-            translation=hash_to_translated[hash_key]
-        )
-        session.add(lyricline)
-        loaded_slots.append(position)
-        hash_to_lyricline[hash_key] = lyricline
-
-    return (hash_to_lyricline, loaded_slots)
-
-
-async def tokenize_new_lines(
-    session: AsyncSession,
-    translation_client: DeepLClient, 
-    translate_hashes: list[str],
-    hash_to_lyricline: dict[str, LyricLine]
-) -> dict[str, tuple[LyricLine, list[Token]]]:
-    """ 
-    Tokenizes, translates and creates vocab and sense for all new lines
-    """
-    hash_to_lls_tokens = {}
-    for hash_key in translate_hashes:
-        lyricline = hash_to_lyricline[hash_key]
-        text = lyricline.text
-        tds = tokenize_line(text)
-
-        # translate
-        words = [td.text for td in tds if td.pos != "PUNCT"]
-        response = []
-        if words:
-            response = await translation_client.translate_batch(
-                texts=words, 
-                target_lang="EN-US", 
-                context=text,
-                source_lang="UK"
-            )
-
-        r_idx = 0
-        tokens = []
-        for i, td in enumerate(tds):
-            if td.pos != "PUNCT":
-                vocab = await get_or_create_vocabulary(session, td.lemma, td.pos)
-                sense = await get_or_create_sense(
-                    session,
-                    vocab=vocab,
-                    translation=response[r_idx].translated_text,
-                    provider="deepl",
-                    lyric_line=lyricline
-                )
-                r_idx += 1
-
-                token = Token(
-                    position=i,
-                    text=td.text,
-                    start_char=td.start_char,
-                    end_char=td.end_char,
-                    vocab=vocab,
-                    sense=sense,
-                    line=lyricline,
-                )
-
-            else:
-                token = Token(
-                    position=i,
-                    text=td.text,
-                    start_char=td.start_char,
-                    end_char=td.end_char,
-                    line=lyricline,
-                )
-            session.add(token)
-            tokens.append(token)
-        hash_to_lls_tokens[hash_key] = (lyricline, tokens)
-    return hash_to_lls_tokens
-
-
-async def clone_non_unique_lines(
+async def store_new_lines(
     session: AsyncSession,
     track: Track,
-    hash_to_lls_tokens: dict[str, tuple[LyricLine, list[Token]]],
-    ordered_hash: list[str],
-    ordered_time: list[int],
-    loaded_slots: list[int]
+    hash_str: str,
+    parsed_lines: list[ParsedLine],  # timing
+    tokenized: TokenizedLine,  # tokens
+    translated: ContextualTranslation,  # translation
 ):
-    for i, hash_key in enumerate(ordered_hash):
-        if i in loaded_slots:
-            continue
-        lyricline, tokens = hash_to_lls_tokens[hash_key]
+    translation = LineTranslation(
+        text_hash=hash_str,
+        source_text=translated.context.source,
+        translation=translated.context.translation,
+        provider=translated.provider,
+    )
+    session.add(translation)
 
-        new_tokens = [
-            Token(
-                position=token.position,
-                text=token.text,
-                start_char=token.start_char,
-                end_char=token.end_char,
-                vocab=token.vocab,
-                sense=token.sense,
-            ) for token in tokens
-        ]
-        for cloned_token in new_tokens:
-            session.add(cloned_token) # currently not necessary
+    n_lines = len(parsed_lines)
 
-        cloned_line = LyricLine(
-            track=track,
-            position=i,
-            time=ordered_time[i],
-            text=lyricline.text,
-            translation=lyricline.translation,
-            tokens=new_tokens
+    lyriclines = [
+        build_ll(track=track, parsed_line=p, translation=translation) for p in parsed_lines
+    ]
+    session.add_all(lyriclines)
+
+    by_pos = {el.position: el for el in translated.elements}
+    for td in tokenized.tds:
+        vocab = await get_or_create_vocabulary(session, td.lemma, td.pos)
+        sense = await get_or_create_sense(
+            session,
+            vocab=vocab,
+            translation=by_pos[td.position].translation,
+            provider=translated.provider,
+            lyric_line=lyriclines[0],
+            # TODO: Examine if we want to keep this example line mapping
         )
-        session.add(cloned_line)
+
+        tokens = [
+            build_token(
+                src=td,
+                line=lyriclines[i],
+                vocab=vocab,
+                sense=sense,
+                # TODO: add parsedline char matching for word timing
+            )
+            for i in range(n_lines)
+        ]
+
+        session.add_all(tokens)
+
+
+async def clone_line_translation(
+    session: AsyncSession,
+    track: Track,
+    parsed_lines: list[ParsedLine],
+    og_line: LyricLine,
+):
+    n_lines = len(parsed_lines)
+
+    cloned_lines = [
+        build_ll(track=track, parsed_line=p, translation_id=og_line.translation_id)
+        for p in parsed_lines
+    ]
+    session.add_all(cloned_lines)
+
+    new_tokens = []
+    for i in range(n_lines):
+        new_tokens.extend(
+            [
+                build_token(
+                    src=token,
+                    line=cloned_lines[i],
+                    vocab_id=token.vocab_id,
+                    sense_id=token.sense_id,
+                    # TODO: add parsedline char matching for word timing
+                )
+                for token in og_line.tokens
+            ]
+        )
+    session.add_all(new_tokens)
 
 
 async def save_track(
     session: AsyncSession,
-    translation_client: DeepLClient,
+    translator: ContextualTranslator,
     lrclib_track: LrclibTrack,
-    parsed_lines: list[ParsedLine],
 ) -> Track:
-    existing = await get_track_by_lrclib_id(session, lrclib_track.id)
-    if existing is not None:
-        return existing
-
+    # Create a new track instance
     track = Track(
         lrclib_id=lrclib_track.id,
         track_name=lrclib_track.track_name,
@@ -219,32 +189,52 @@ async def save_track(
     )
     session.add(track)
 
-    lines_text = [line.text for line in parsed_lines]
-    ordered_hashes = [text_hash(line) for line in lines_text]
-    hash_to_text = dict(zip(ordered_hashes, lines_text, strict=True))
-
-    translate_hashes, pre_existing = await get_unique_lines(session, hash_to_text.keys())
-
-    hash_to_translation = await translate_novel_lines(
-        session, translation_client, translate_hashes, hash_to_text
+    # Parse track lyrics
+    all_parsed_lines = (
+        [] if lrclib_track.best_lyrics is None else parse_lrc(lrclib_track.best_lyrics)
     )
 
-    lines_time = [line.time for line in parsed_lines]
-    hash_to_lyriclines, loaded_slots = await add_novel_lines(
-        session, hash_to_translation, ordered_hashes, lines_text, lines_time, track
-    )
+    # Filter out lines without text
+    parsed_lines = []
+    for p in all_parsed_lines:
+        if not p.text:
+            session.add(build_ll(track, p))
+        else:
+            parsed_lines.append(p)
 
+    # Set up map for dedup
+    hash_to_line = defaultdict(list)
+    for p in parsed_lines:
+        hash_to_line[text_hash(p.text)].append(p)
 
-    hash_to_lls_tokens = await tokenize_new_lines(
-        session, translation_client, translate_hashes, hash_to_lyriclines
-    )
+    # Identify what text needs new translation
+    # NOTE: currently context stops at the line level
+    translate_hashes, existing_ll = await get_unique_lines(session, hash_to_line.keys())
 
-    # Get any relevant pre existing lines
-    hash_to_lls_tokens.update(pre_existing)
+    # Clone any already existing lls
+    for h, example_ll in existing_ll.items():
+        await clone_line_translation(session, track, hash_to_line[h], example_ll)
 
-    await clone_non_unique_lines(
-        session, track, hash_to_lls_tokens, ordered_hashes, lines_time, loaded_slots
-    )
+    # Tokenize new lines
+    tokenized = {h: TokenizedLine(text=hash_to_line[h][0].text) for h in translate_hashes}
+
+    to_translate = {}
+    for h, tl in tokenized.items():
+        if tl.translatable():
+            to_translate[h] = tl
+        else:
+            # Skip translation for lines that aren't translatable
+            session.add_all([build_ll(track, p) for p in hash_to_line[h]])
+
+    if to_translate:
+        translated_units = await translator.contextual_batch_translate(
+            context_units=[tl.context_unit for tl in to_translate.values()],
+            # TODO: Add source language detection?
+        )
+
+        # Store new lines (tokens, vocab, senses)
+        for (h, tl), translated in zip(to_translate.items(), translated_units, strict=True):
+            await store_new_lines(session, track, h, hash_to_line[h], tl, translated)
 
     await persist_track(session, track)
     # re-fetch through the same eager-loaded query as the "already exists" path,
@@ -255,7 +245,7 @@ async def save_track(
 async def ingest_track(
     session: AsyncSession,
     lrc_client: LrclibClient,
-    translation_client: DeepLClient,
+    translator: ContextualTranslator,
     track: str,
     artist: str,
     album: str | None = None,
@@ -263,13 +253,13 @@ async def ingest_track(
 ) -> Track | None:
     """Ingest a track and its lyrics into the database."""
     lrclib_track = await get_lyrics(lrc_client, track, artist, album=album, duration=duration)
-
     if lrclib_track is None:
         return None
 
-    if lrclib_track.best_lyrics is None:
-        parsed_lines = []
-    else:
-        parsed_lines = parse_lrc(lrclib_track.best_lyrics)
+    # Check if track already exists in db
+    existing = await get_track_by_lrclib_id(session, lrclib_track.id)
+    if existing is not None:
+        return existing
 
-    return await save_track(session, translation_client, lrclib_track, parsed_lines)
+    # Ingest, save and load the track
+    return await save_track(session, translator, lrclib_track)

@@ -89,6 +89,7 @@ class Token(Base):
     text: Mapped[str]
     start_char: Mapped[int]
     end_char: Mapped[int]
+    time: Mapped[int | None] = mapped_column(default=None)
     vocab_id: Mapped[int | None] = mapped_column(ForeignKey("vocabulary.id"))
     sense_id: Mapped[int | None] = mapped_column(ForeignKey("senses.id"))
 

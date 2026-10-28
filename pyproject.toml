@@ -1,6 +1,6 @@
 [project]
 name = "spivmova"
-version = "0.1.0"
+version = "0.1.01"
 description = "Application to help learn Ukrainian through lyrics"
 readme = "README.md"
 authors = [
@@ -20,6 +20,7 @@ dependencies = [
     "spacy>=3.8.15",
     "sqlalchemy[asyncio]>=2.0.52",
     "uvicorn[standard]>=0.52.4",
+    "google-cloud-translate>=3.16.0"
 ]
 
 [tool.uv.sources]

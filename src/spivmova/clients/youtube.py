@@ -1,5 +1,4 @@
 import httpx
-from pydantic import BaseModel, Field
 
 from spivmova.config import settings
 
@@ -15,7 +14,7 @@ class YouTubeClient:
             "part": "id,snippet",
             "q": query,
             "type": "video",
-            "maxResults": 1, # TODO: improve picking (duration based? already done with lrclib querying)
+            "maxResults": 1,  # TODO: improve picking (duration based? already done with lrclib querying)
             "key": settings.youtube_api_key,
         }
         r = await self._http.get(self.DATA_BASE, params=params)

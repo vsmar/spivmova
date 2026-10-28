@@ -76,4 +76,3 @@ class VideoOut(BaseModel):
 
 class VideoOverrideIn(BaseModel):
     youtube_video_id: str
-

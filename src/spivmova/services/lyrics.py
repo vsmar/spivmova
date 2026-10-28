@@ -2,15 +2,14 @@ from spivmova.clients.lrclib import LrclibClient, LrclibNotFound, LrclibTrack
 
 
 async def get_lyrics(
-        client: LrclibClient,
-        track: str,
-        artist: str,
-        album: str | None = None,
-        duration: float | None = None
-    ) -> LrclibTrack | None:
+    client: LrclibClient,
+    track: str,
+    artist: str,
+    album: str | None = None,
+    duration: float | None = None,
+) -> LrclibTrack | None:
     try:
-        return await client.get_by_meta(track, artist, 
-                                        album_name=album, duration=duration)
+        return await client.get_by_meta(track, artist, album_name=album, duration=duration)
     except LrclibNotFound:
         pass
 
@@ -25,10 +24,11 @@ def pick_best(hits: list[LrclibTrack], duration: float | None = None) -> LrclibT
     # Prefer synced, non-instrumental, with closest matching duration
     def penalty(track: LrclibTrack) -> tuple[int, int, float]:
         synced = int(not track.is_synced)
-        gap = (abs(track.duration - duration) 
-                if duration is not None and track.duration is not None 
-                else float("inf")
-            )
+        gap = (
+            abs(track.duration - duration)
+            if duration is not None and track.duration is not None
+            else float("inf")
+        )
         return (synced, int(track.instrumental), gap)
 
     return min(hits, key=penalty) if hits else None

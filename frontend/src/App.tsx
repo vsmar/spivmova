@@ -330,7 +330,7 @@ export const renderLine = (
 
 function describeError(err: Error): string {
   if (err instanceof TrackNotFoundError) return 'No lyrics found for that song and artist.'
-  if (err instanceof ApiError && err.status === 502) return err.message
+  if (err instanceof ApiError && err.status !== 500) return err.message
   if (err instanceof TypeError) return 'No response from the server (it may be down or have crashed).'
   return 'Something went wrong.'
 }
@@ -379,7 +379,7 @@ function App() {
       </section>
 
       <p id="credits">
-        Translations by <a href="https://www.deepl.com" target="_blank">DeepL</a>. Lyrics via{' '}
+        Translations by <a href="https://www.deepl.com" target="_blank">DeepL</a> and <a href="https://translate.google.com/" target="_blank">Google Translate</a>. Lyrics via{' '}
         <a href="https://lrclib.net" target="_blank">LRCLIB</a>. Video via{' '}
         <a href="https://www.youtube.com" target="_blank">YouTube</a>.
       </p>

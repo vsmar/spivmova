@@ -1,5 +1,8 @@
 TODO List:
 
+spaCy doesnt handle hyphenated words properly.
+
+
 Minor Cosmetic:
  - logo revamp
  - fix autoscroll breakout glitch
@@ -40,6 +43,8 @@ Legality:
 Знайди мене Klavdia Petrivna
 Обійми  Океан Ельзи
 Без бою  Океан Ельзи
+Misto  ONUKA
+Ой, була була в батечка дочка  ЩукаРиба 
 
 docker exec -i spivmova-db psql -U spivmova -d spivmova < spivmova_backup.sql
 .venv/Scripts/uvicorn spivmova.main:app --reload

@@ -9,4 +9,5 @@ class Settings(BaseSettings):
     spacy_model: str = "uk_core_news_sm"
     model_config = SettingsConfigDict(env_file=".env")
 
+
 settings = Settings()
