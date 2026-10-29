@@ -9,6 +9,7 @@ import { SpivmovaLogo } from "./components/SpivmovaLogo";
 import { loadYouTubeIframeApi } from './youtube/loadYouTubeIframeApi';
 import { TranslitInput, type TranslitInputHandle } from './components/TranslitInput';
 import { TranslitTable } from './components/TranslitTable';
+import { span } from 'motion/react-m';
 
 
 type FetchState<T> =
@@ -50,24 +51,18 @@ export const SearchBar = ({ onSearch, loading }: SearchBarProps) => {
 
   return (
     <div className="search-bar">
-{/* 
-      <TranslitTable
-        onInsert={(text) => activeRef.current.current?.insert(text)} 
-      /> */}
-
       <form onSubmit={handleSubmit} className="search-form">
         <span className="translit-anchor">
-          <button className="translit-toggle" />
+          <button
+            type="button"
+            title="Type Ukrainian (Cyrillic) using Latin letters"
+            className={"translit-toggle"}
+            aria-pressed={translitOn}
+            onClick={() => setTranslitOn((on) => !on)}
+          > {'Lat -> Кир'} </button>
+
           {translitOn && <TranslitTable onInsert={(text) => activeRef.current.current?.insert(text)} />}
         </span>
-
-        <button
-          type="button"
-          title="Type Ukrainian (Cyrillic) using Latin letters"
-          className={"translit-toggle"}
-          aria-pressed={translitOn}
-          onClick={() => setTranslitOn((on) => !on)}
-        > {'Lat -> Кир'} </button>
 
         <TranslitInput
           value={trackName}
