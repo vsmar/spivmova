@@ -1,0 +1,94 @@
+
+.translit-table { 
+    padding: 8px; 
+    border: 1px solid var(--border); 
+    border-radius: 8px;
+    background: var(--bg); 
+    box-shadow: var(--shadow); 
+}
+.translit-keys  { 
+    display: grid; 
+    grid-template-columns: 
+    repeat(auto-fill, 
+    minmax(2.5rem, 1fr)); 
+    gap: 4px; 
+}
+
+
+.translit-key {
+  display: flex;
+  flex-direction: column;     /* letter on top, Latin underneath */
+  align-items: center;
+  padding: 4px 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.translit-key:hover { background: var(--accent-bg); }
+
+.translit-cyr   { font-size: 1.15rem; color: var(--text-h); line-height: 1.2; }
+.translit-lat   { font-size: 0.7rem; line-height: 1.1; font-family: var(--mono); color: var(--accent); }
+.translit-alias { opacity: 0.6; }
+
+
+
+.translit-hints {                      /* wrapper: solid line under the keys */
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.translit-hint {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;               /* key and description text share a baseline */
+  gap: 3px 10px;
+  margin: 0;
+  font-size: 0.75rem;
+  text-align: left;
+}
+.translit-hint dt { white-space: nowrap; }
+.translit-hint dd { margin: 0; }
+
+.translit-hint-group + .translit-hint-group {   /* only between the two groups */
+  border-top: 1px dashed var(--border);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.translit-hint-label {
+  margin: 0 0 2px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: left;
+  opacity: 0.7;
+}
+
+.translit-hint kbd {
+  display: inline-block;               /* padding/border don't spill into neighbouring lines */
+  line-height: 1.3;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;          /* looks like a key cap */
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
+
+
+.translit-anchor {
+  position: relative;        /* the table positions itself relative to this */
+  display: inline-block;
+}
+
+.translit-anchor .translit-table {
+  position: absolute;        /* taken out of normal flow, so nothing shifts */
+  bottom: calc(100% + 6px);  /* sits just above the toggle */
+  left: -120px;
+  z-index: 20;               /* above the logo and motto text */
+  width: 20rem;              /* a fixed width, not just max-width */
+  max-width: calc(100vw - 32px);
+}

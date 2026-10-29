@@ -72,6 +72,16 @@
   height: 24px;
 }
 
+.search-form {
+  font-size: 14px;
+}
+
+.search-form input,
+.search-form button {
+  font: inherit;          /* all controls follow the form */
+}
+
+
 /* Two-column layout: video on the left (placeholder for now), lyrics on
    the right. Stacks vertically once there isn't room side by side. */
 .player {

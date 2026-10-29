@@ -16,7 +16,7 @@ export function SpivmovaLogo() {
 
   return (
     <h1 
-    aria-label="Spivmova" class="logo" style={{ display: "flex" }}>
+    aria-label="Spivmova" className="logo" style={{ display: "flex" }}>
       {letters.map((ch, i) => (
         <span
             key={i}

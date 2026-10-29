@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import './App.css';
 import './components/SpivmovaLogo.css';
+import './components/TranslitInput.css';
 
 import { getTrackVideo, searchTrack, setTrackVideo, TrackNotFoundError, ApiError } from './api/clients';
 import type { TrackOut, LyricLineOut, TokenOut, VideoOut } from './api/types';
 import { SpivmovaLogo } from "./components/SpivmovaLogo";
 import { loadYouTubeIframeApi } from './youtube/loadYouTubeIframeApi';
+import { TranslitInput, type TranslitInputHandle } from './components/TranslitInput';
+import { TranslitTable } from './components/TranslitTable';
 
 
 type FetchState<T> =
@@ -33,43 +36,79 @@ export const SearchBar = ({ onSearch, loading }: SearchBarProps) => {
   const [albumName, setAlbumName] = useState('')
   const [duration, setDuration] = useState<number | null>(null)
 
+  const [translitOn, setTranslitOn] = useState(false)
+
+  const trackRef = useRef<TranslitInputHandle>(null)
+  const artistRef = useRef<TranslitInputHandle>(null)
+  const albumRef = useRef<TranslitInputHandle>(null)
+  const activeRef = useRef(trackRef)          // which field gets the table's letters
+
   const handleSubmit = (e: SubmitEvent) => {
     e.preventDefault()
     onSearch(trackName, artistName, albumName || undefined, duration ?? undefined)
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input
-        type="text"
-        placeholder="Track Name"
-        value={trackName}
-        required={true}
-        onChange={(e) => setTrackName(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="Artist Name"
-        value={artistName}
-        required={true}
-        onChange={(e) => setArtistName(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="Album Name"
-        value={albumName}
-        onChange={(e) => setAlbumName(e.target.value)}
-      />
-      <input
-        type="number"
-        placeholder="Duration (seconds)"
-        value={duration ?? ''}
-        onChange={(e) => setDuration(e.target.value ? Number(e.target.value) : null)}
-      />
-      <button type="submit" disabled={loading}>
-        Search
-      </button>
-    </form>
+    <div className="search-bar">
+{/* 
+      <TranslitTable
+        onInsert={(text) => activeRef.current.current?.insert(text)} 
+      /> */}
+
+      <form onSubmit={handleSubmit} className="search-form">
+        <span className="translit-anchor">
+          <button className="translit-toggle" />
+          {translitOn && <TranslitTable onInsert={(text) => activeRef.current.current?.insert(text)} />}
+        </span>
+
+        <button
+          type="button"
+          title="Type Ukrainian (Cyrillic) using Latin letters"
+          className={"translit-toggle"}
+          aria-pressed={translitOn}
+          onClick={() => setTranslitOn((on) => !on)}
+        > {'Lat -> Кир'} </button>
+
+        <TranslitInput
+          value={trackName}
+          onChange={setTrackName}
+          translit={translitOn}
+          ref={trackRef}
+          onFocus={() => (activeRef.current = trackRef)}
+          type="text"
+          placeholder="Track Name"
+          required={true}
+        />
+        <TranslitInput
+          value={artistName}
+          onChange={setArtistName}
+          translit={translitOn}
+          ref={artistRef}
+          onFocus={() => (activeRef.current = artistRef)}
+          type="text"
+          placeholder="Artist Name"
+          required={true}
+        />
+        <TranslitInput
+          value={albumName}
+          onChange={setAlbumName}
+          translit={translitOn}
+          ref={albumRef}
+          onFocus={() => (activeRef.current = albumRef)}
+          type="text"
+          placeholder="Album Name"
+        />
+        <input
+          type="number"
+          placeholder="Duration (seconds)"
+          value={duration ?? ''}
+          onChange={(e) => setDuration(e.target.value ? Number(e.target.value) : null)}
+        />
+        <button type="submit" disabled={loading}>
+          Search
+        </button>
+      </form>
+    </div>
   )
 }
 
@@ -302,7 +341,7 @@ export const Lyrics = ({ track, lines }: { track: TrackOut; lines: LyricLineOut[
 
 export const renderLine = (
   line: LyricLineOut,
-  currentTime: number,
+  _currentTime: number, // unused for now; reserved for word-level timing highlight
   hoveredVocabId: number | null,
   onHover: (vocabId: number | null) => void,
 ) => {

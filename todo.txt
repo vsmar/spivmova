@@ -2,6 +2,12 @@ TODO List:
 
 spaCy doesnt handle hyphenated words properly.
 
+Priorities:
+1. Transliteration and imperfect matching for queries & database search
+2. Public playlist support (spotify & yotube)
+3. Recommendations
+4. Spotify premium integration (for playback and private playlists)
+5. Multilanguage support
 
 Minor Cosmetic:
  - logo revamp
