@@ -1,4 +1,3 @@
-
 .translit-table { 
     padding: 8px; 
     border: 1px solid var(--border); 
@@ -6,6 +5,7 @@
     background: var(--bg); 
     box-shadow: var(--shadow); 
 }
+
 .translit-keys  { 
     display: grid; 
     grid-template-columns: 
@@ -13,8 +13,6 @@
     minmax(2.5rem, 1fr)); 
     gap: 4px; 
 }
-
-
 .translit-key {
   display: flex;
   flex-direction: column;     /* letter on top, Latin underneath */
@@ -31,7 +29,6 @@
 .translit-cyr   { font-size: 1.15rem; color: var(--text-h); line-height: 1.2; }
 .translit-lat   { font-size: 0.7rem; line-height: 1.1; font-family: var(--mono); color: var(--accent); }
 .translit-alias { opacity: 0.6; }
-
 
 
 .translit-hints {                      /* wrapper: solid line under the keys */
@@ -78,6 +75,20 @@
   font-size: 0.7rem;
 }
 
+.translit-hints summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: left;
+  opacity: 0.7;
+  list-style: none;                 /* hide the default ▸ marker */
+}
+.translit-hints summary::-webkit-details-marker { display: none; }   /* Safari */
+.translit-hints summary::before { content: ' ▸'; }
+.translit-hints[open] summary::before { content: ' ▾'; }
+
+
 
 .translit-anchor {
   position: relative;        /* the table positions itself relative to this */
@@ -91,4 +102,9 @@
   z-index: 20;               /* above the logo and motto text */
   width: 20rem;              /* a fixed width, not just max-width */
   max-width: calc(100vw - 32px);
+}
+
+.translit-anchor .translit-table--below {
+  bottom: auto;
+  top: calc(100% + 6px);
 }

@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { SINGLE, COMBINE, ESCAPE } from '../translit/scheme'
 import './TranslitTable.css'
 
@@ -46,42 +47,50 @@ export function buildKeyTable(): keyRow[] {
 const ROWS = buildKeyTable()
 
 export function TranslitTable({ onInsert }: { onInsert: (text: string) => void }) {
-  return (
-    <div className="translit-table" role="group" aria-label="Cyrillic letters">
-        <div className="translit-keys">
-            {ROWS.map((row) => (
-            <button
-                key={row.cyr}
-                type="button"
-                className="translit-key"
-                onMouseDown={(e) => e.preventDefault()}   // keep focus in the input
-                onClick={(e) => onInsert(e.shiftKey ? row.cyr.toUpperCase() : row.cyr)}
-            >
-                <span className="translit-cyr">{row.cyr}</span>
-                <span className="translit-lat">
-                    {row.keys[0]}
-                    {row.keys.length > 1 && <span className="translit-alias"> {row.keys.slice(1).join(' ')}</span>}
-                </span>
-            </button>
-            ))}
-        </div>
-            
-        <div className="translit-hints">
-            <div className="translit-hint-group">
-                <p className="translit-hint-label">Typing</p>
-                <dl className="translit-hint">
-                    <dt><kbd>{ESCAPE}</kbd></dt> <dd>keep letters separate: z{ESCAPE}h → зг</dd>
-                    <dt><kbd>Backspace</kbd></dt> <dd>undo a combination: ж → зг</dd>
-                </dl>
+    const tableRef = useRef<HTMLDivElement>(null)
+    const [below, setBelow] = useState(false)
+
+    useLayoutEffect(() => {
+        const top = tableRef.current?.getBoundingClientRect().top ?? 0
+        if (top < 8) setBelow(true)          // would be cut off at the top of the window
+    }, [])
+
+    return (
+        <div ref={tableRef} className={`translit-table${below ? ' translit-table--below' : ''}`} role="group" aria-label="Cyrillic letters">
+            <div className="translit-keys">
+                {ROWS.map((row) => (
+                <button
+                    key={row.cyr}
+                    type="button"
+                    className="translit-key"
+                    onMouseDown={(e) => e.preventDefault()}   // keep focus in the input
+                    onClick={(e) => onInsert(e.shiftKey ? row.cyr.toUpperCase() : row.cyr)}
+                >
+                    <span className="translit-cyr">{row.cyr}</span>
+                    <span className="translit-lat">
+                        {row.keys[0]}
+                        {row.keys.length > 1 && <span className="translit-alias"> {row.keys.slice(1).join(' ')}</span>}
+                    </span>
+                </button>
+                ))}
             </div>
-            <div className="translit-hint-group">
-                <p className="translit-hint-label">Clicking</p>
-                <dl className="translit-hint">
-                    <dt><kbd>Shift</kbd> + click</dt> <dd>capital letter</dd>
-                </dl>
-            </div>
+
+            <details className="translit-hints">
+                <summary onMouseDown={(e) => e.preventDefault()}>Hints</summary>
+                <div className="translit-hint-group">
+                    <p className="translit-hint-label">Typing</p>
+                    <dl className="translit-hint">
+                        <dt><kbd>{ESCAPE}</kbd></dt> <dd>keep letters separate: z{ESCAPE}h → зг</dd>
+                        <dt><kbd>Backspace</kbd></dt> <dd>undo a combination: ж → зг</dd>
+                    </dl>
+                </div>
+                <div className="translit-hint-group">
+                    <p className="translit-hint-label">Clicking</p>
+                    <dl className="translit-hint">
+                        <dt><kbd>Shift</kbd> + click</dt> <dd>capital letter</dd>
+                    </dl>
+                </div>
+            </details>
         </div>
- 
-    </div>
-  )
+    )
 }
